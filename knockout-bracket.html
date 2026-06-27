@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Knockout Bracket Generator</title>
+<style>
+/* ─────────────────────────────────────────────
+   CSS VARIABLES — driven by the sizing panel
+───────────────────────────────────────────── */
+:root {
+  --box-w:       200px;
+  --box-pad:     10px;
+  --font-size:   13px;
+  --col-gap:     60px;
+  --img-size:    38px;
+
+  /* Palette */
+  --bg:          #0a0f1e;
+  --gold:        #f0c040;
+  --gold-dim:    #c89a20;
+  --navy:        #0d1a3a;
+  --navy-mid:    #112050;
+  --navy-light:  #1a2d5a;
+  --border:      #f0c040;
+  --text:        #e8eaf6;
+  --text-dim:    #9baabb;
+  --line-col:    #f0c040;
+  --overlay:     rgba(5,10,28,0.72);
+}
+
+/* ─────────────────────────────────────────────
+   RESET & BASE
+───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: var(--font-size);
+  background-color: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: auto;
+}
+
+/* ─── Background image layer ─── */
+#bg-layer {
+  position: fixed;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  z-index: 0;
+  pointer-events: none;
+}
+#bg-layer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--overlay);
+}
+
+/* ─── Content wrapper above bg ─── */
+#app {
+  position: relative;
+  z-index: 1;
+  padding: 0 0 80px;
+}
+
+/* ─────────────────────────────────────────────
+   TOP HEADER
+───────────────────────────────────────────── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 28px;
+  background: linear-gradient(135deg, #07112a 0%, #0d1a3a 60%, #162240 100%);
+  border-bottom: 2px solid var(--gold);
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.header-title {
+  font-size: clamp(18px, 3vw, 28px);
+  font-weight: 800;
+  color: var(--gold);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  text-shadow: 0 0 18px rgba(240,192,64,0.5);
+}
+.header-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ─────────────────────────────────────────────
+   BUTTONS
+───────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1.5px solid var(--gold);
+  background: transparent;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  white-space: nowrap;
+}
+.btn:hover {
+  background: var(--gold);
+  color: #0a0f1e;
+  box-shadow: 0 0 14px rgba(240,192,64,0.45);
+}
+.btn-primary {
+  background: var(--gold);
+  color: #0a0f1e;
+}
+.btn-primary:hover {
+  background: #ffd84d;
+  box-shadow: 0 0 20px rgba(240,192,64,0.6);
+}
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 11px;
+}
+
+/* ─────────────────────────────────────────────
+   SETUP PANEL
+───────────────────────────────────────────── */
+#setup-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  padding: 20px 28px;
+  background: rgba(13,26,58,0.85);
+  border-bottom: 1px solid rgba(240,192,64,0.25);
+}
+.setup-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.setup-field label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+}
+.setup-field input[type="number"] {
+  width: 100px;
+  padding: 8px 10px;
+  background: var(--navy-mid);
+  border: 1.5px solid rgba(240,192,64,0.35);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.setup-field input[type="number"]:focus {
+  border-color: var(--gold);
+}
+
+/* ─────────────────────────────────────────────
+   SETTINGS PANEL (Fixed Sidebar)
+───────────────────────────────────────────── */
+#settings-toggle {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1000;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  padding: 14px 8px;
+  background: var(--gold);
+  color: #0a0f1e;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  cursor: pointer;
+  border-radius: 6px 0 0 6px;
+  border: none;
+  text-transform: uppercase;
+  transition: background 0.2s;
+  box-shadow: -3px 0 12px rgba(0,0,0,0.4);
+}
+#settings-toggle:hover { background: #ffd84d; }
+
+#settings-panel {
+  position: fixed;
+  right: -290px;
+  top: 0;
+  width: 280px;
+  height: 100vh;
+  background: #07112a;
+  border-left: 2px solid var(--gold);
+  z-index: 999;
+  transition: right 0.3s ease;
+  overflow-y: auto;
+  padding: 0 0 40px;
+  box-shadow: -8px 0 30px rgba(0,0,0,0.6);
+}
+#settings-panel.open { right: 0; }
+
+.settings-header {
+  padding: 18px 20px;
+  background: linear-gradient(135deg, #07112a, #0d1a3a);
+  border-bottom: 2px solid var(--gold);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.settings-close {
+  background: none;
+  border: none;
+  color: var(--gold);
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+}
+.settings-section {
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(240,192,64,0.15);
+}
+.settings-section h4 {
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  margin-bottom: 14px;
+  font-weight: 700;
+}
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.slider-row label {
+  font-size: 12px;
+  color: var(--text-dim);
+  min-width: 80px;
+}
+.slider-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+.slider-row .val {
+  font-size: 12px;
+  color: var(--gold);
+  min-width: 44px;
+  text-align: right;
+  font-weight: 700;
+}
+
+/* ─────────────────────────────────────────────
+   BRACKET LAYOUT
+───────────────────────────────────────────── */
+#bracket-root {
+  padding: 30px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 50px;
+}
+
+/* ─── Group Stage ─── */
+.section-label {
+  font-size: 11px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 800;
+  margin-bottom: 18px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(240,192,64,0.3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-label::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 16px;
+  background: var(--gold);
+  border-radius: 2px;
+}
+
+#groups-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.group-card {
+  background: rgba(13,26,58,0.85);
+  border: 1.5px solid rgba(240,192,64,0.35);
+  border-radius: 8px;
+  overflow: hidden;
+  min-width: 220px;
+}
+.group-header {
+  background: linear-gradient(90deg, #0d1a3a, #162240);
+  padding: 8px 14px;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--gold);
+  border-bottom: 1px solid rgba(240,192,64,0.35);
+  outline: none;
+}
+.group-header:focus { background: #162240; }
+
+/* ─── Participant rows ─── */
+.participant {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--box-pad) 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  cursor: default;
+  transition: background 0.15s;
+}
+.participant:last-child { border-bottom: none; }
+.participant:hover { background: rgba(240,192,64,0.06); }
+
+.participant-img-wrap {
+  position: relative;
+  width: var(--img-size);
+  height: var(--img-size);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.participant-img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1.5px solid rgba(240,192,64,0.35);
+  transition: border-color 0.2s;
+  display: block;
+}
+.participant-img-wrap:hover img { border-color: var(--gold); }
+.img-add-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: rgba(10,15,30,0.65);
+  font-size: 18px;
+  color: var(--gold);
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+.participant-img-wrap:hover .img-add-overlay { opacity: 1; }
+
+.participant-name {
+  flex: 1;
+  font-size: var(--font-size);
+  color: var(--text);
+  outline: none;
+  border-bottom: 1px solid transparent;
+  padding: 2px 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.participant-name:focus {
+  border-bottom-color: var(--gold);
+  white-space: normal;
+  overflow: visible;
+}
+.participant-name:empty::before {
+  content: attr(placeholder);
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+/* ─────────────────────────────────────────────
+   KNOCKOUT STAGE
+───────────────────────────────────────────── */
+#knockout-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+/* ─── Main bracket (left+right columns + center final) ─── */
+.bracket-main {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  justify-content: center;
+}
+
+/* ─── Column of rounds ─── */
+.rounds-col {
+  display: flex;
+  gap: var(--col-gap);
+  align-items: center;
+}
+.rounds-col.left-side { flex-direction: row; }
+.rounds-col.right-side { flex-direction: row-reverse; }
+
+.round {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* ─── Match wrapper (holds 2 participant slots + connector lines) ─── */
+.match-wrapper {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Spacer between matches in a round (creates line room) */
+.match-spacer {
+  flex: 1;
+  min-height: 20px;
+}
+
+/* ─── Individual bracket slot ─── */
+.bracket-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: var(--box-w);
+  padding: var(--box-pad) 10px;
+  background: var(--navy-mid);
+  border: 1.5px solid rgba(240,192,64,0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  position: relative;
+  min-height: 48px;
+}
+.bracket-slot:hover {
+  border-color: var(--gold);
+  background: var(--navy-light);
+  box-shadow: 0 0 12px rgba(240,192,64,0.2);
+}
+.bracket-slot.winner {
+  border-color: var(--gold);
+  background: rgba(240,192,64,0.12);
+  box-shadow: 0 0 10px rgba(240,192,64,0.25);
+}
+.bracket-slot.empty {
+  border-style: dashed;
+  border-color: rgba(240,192,64,0.2);
+  background: rgba(13,26,58,0.5);
+}
+.slot-img {
+  width: var(--img-size);
+  height: var(--img-size);
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1.5px solid rgba(240,192,64,0.4);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.slot-img-placeholder {
+  width: var(--img-size);
+  height: var(--img-size);
+  border-radius: 3px;
+  border: 1.5px dashed rgba(240,192,64,0.25);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: rgba(240,192,64,0.3);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+.bracket-slot:hover .slot-img-placeholder {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.slot-name {
+  flex: 1;
+  font-size: var(--font-size);
+  color: var(--text);
+  outline: none;
+  border-bottom: 1px solid transparent;
+  padding: 2px 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.slot-name:focus {
+  border-bottom-color: var(--gold);
+  white-space: normal;
+}
+.slot-name:empty::before {
+  content: attr(placeholder);
+  color: rgba(155,170,187,0.5);
+}
+.advance-btn {
+  font-size: 10px;
+  background: none;
+  border: none;
+  color: var(--gold-dim);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+.bracket-slot:hover .advance-btn { opacity: 1; }
+.advance-btn:hover { background: rgba(240,192,64,0.2); color: var(--gold); }
+
+/* line between two slots in a match */
+.match-divider {
+  height: 1px;
+  background: rgba(240,192,64,0.2);
+  margin: 0;
+}
+
+/* ─────────────────────────────────────────────
+   CONNECTING LINES (CSS only, pseudo-elements)
+───────────────────────────────────────────── */
+/* Left side: connector grows to the RIGHT */
+.left-side .match-pair {
+  position: relative;
+}
+.left-side .match-pair::after {
+  content: '';
+  position: absolute;
+  right: calc(-1 * var(--col-gap));
+  top: 50%;
+  width: var(--col-gap);
+  height: 1px;
+  background: var(--line-col);
+  opacity: 0.45;
+}
+/* Right side: connector grows to the LEFT */
+.right-side .match-pair {
+  position: relative;
+}
+.right-side .match-pair::after {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--col-gap));
+  top: 50%;
+  width: var(--col-gap);
+  height: 1px;
+  background: var(--line-col);
+  opacity: 0.45;
+}
+
+/* Vertical bracket bar connecting two matches into one */
+.bracket-connector {
+  position: relative;
+}
+.bracket-connector::before {
+  content: '';
+  position: absolute;
+  background: var(--line-col);
+  opacity: 0.45;
+}
+/* Left side: bar on right edge */
+.left-side .bracket-connector::before {
+  right: calc(-1 * var(--col-gap));
+  width: 1px;
+  top: 25%;
+  bottom: 25%;
+}
+/* Right side: bar on left edge */
+.right-side .bracket-connector::before {
+  left: calc(-1 * var(--col-gap));
+  width: 1px;
+  top: 25%;
+  bottom: 25%;
+}
+
+/* ─────────────────────────────────────────────
+   ROUND LABEL
+───────────────────────────────────────────── */
+.round-label {
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  font-weight: 700;
+  margin-bottom: 10px;
+  white-space: nowrap;
+}
+
+/* ─────────────────────────────────────────────
+   CENTER FINAL AREA
+───────────────────────────────────────────── */
+.final-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+  padding: 0 var(--col-gap);
+  position: relative;
+}
+
+.trophy-icon {
+  font-size: 56px;
+  text-shadow: 0 0 30px rgba(240,192,64,0.8), 0 0 60px rgba(240,192,64,0.4);
+  animation: trophyGlow 2.5s ease-in-out infinite alternate;
+  line-height: 1;
+}
+@keyframes trophyGlow {
+  from { text-shadow: 0 0 20px rgba(240,192,64,0.6), 0 0 40px rgba(240,192,64,0.3); }
+  to   { text-shadow: 0 0 40px rgba(240,192,64,1),   0 0 80px rgba(240,192,64,0.6); }
+}
+
+.final-label {
+  font-size: 13px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  font-weight: 900;
+  color: var(--gold);
+  text-shadow: 0 0 10px rgba(240,192,64,0.5);
+}
+
+.final-match {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+}
+.final-vs {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--gold);
+  text-shadow: 0 0 8px rgba(240,192,64,0.6);
+  flex-shrink: 0;
+  letter-spacing: 2px;
+}
+
+.champion-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  background: rgba(240,192,64,0.08);
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  box-shadow: 0 0 24px rgba(240,192,64,0.25);
+  width: var(--box-w);
+}
+.champion-crown { font-size: 24px; }
+.champion-label {
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  font-weight: 700;
+}
+
+/* ─────────────────────────────────────────────
+   THIRD PLACE BRACKET
+───────────────────────────────────────────── */
+.third-place-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 30px;
+  padding: 20px 24px;
+  background: rgba(13,26,58,0.75);
+  border: 1.5px solid rgba(240,192,64,0.25);
+  border-radius: 10px;
+  width: fit-content;
+}
+.third-place-label {
+  font-size: 10px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.third-place-label::before,
+.third-place-label::after {
+  content: '';
+  width: 40px;
+  height: 1px;
+  background: rgba(240,192,64,0.25);
+}
+.third-match {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.third-vs {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+.bronze-label {
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #cd7f32;
+  font-weight: 700;
+  text-align: center;
+  margin-top: 2px;
+}
+
+/* ─────────────────────────────────────────────
+   ROUND COLUMN WRAPPER
+───────────────────────────────────────────── */
+.round-col-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+/* spacing between match pairs within a round */
+.match-pair {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  margin-bottom: 24px;
+}
+.match-pair:last-child { margin-bottom: 0; }
+
+/* ─────────────────────────────────────────────
+   HIDDEN FILE INPUT
+───────────────────────────────────────────── */
+#hidden-file-input { display: none; }
+
+/* ─────────────────────────────────────────────
+   NOTIFICATION TOAST
+───────────────────────────────────────────── */
+#toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: var(--gold);
+  color: #0a0f1e;
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 13px;
+  z-index: 2000;
+  transition: transform 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  white-space: nowrap;
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ─────────────────────────────────────────────
+   SCROLLBAR STYLING
+───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #07112a; }
+::-webkit-scrollbar-thumb { background: rgba(240,192,64,0.4); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+/* ─────────────────────────────────────────────
+   RESPONSIVE
+───────────────────────────────────────────── */
+@media (max-width: 700px) {
+  header { padding: 14px 16px; }
+  #setup-panel { padding: 14px 16px; }
+  #bracket-root { padding: 20px 12px; }
+  .final-column { padding: 0 20px; }
+  #settings-panel { width: 250px; right: -260px; }
+}
+
+/* ─── Utility ─── */
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.gap-8 { gap: 8px; }
+[contenteditable]:focus-visible { outline: none; }
+
+/* ─── Clear bracket state message ─── */
+.empty-state {
+  text-align: center;
+  color: var(--text-dim);
+  padding: 60px 20px;
+  font-size: 15px;
+  letter-spacing: 1px;
+}
+.empty-state .es-icon { font-size: 48px; margin-bottom: 14px; }
+</style>
+</head>
+<body>
+
+<div id="bg-layer"></div>
+<input type="file" id="hidden-file-input" accept="image/*" />
+<div id="toast"></div>
+
+<div id="app">
+
+<!-- ══════════════════ HEADER ══════════════════ -->
+<header>
+  <div class="header-title">⚽ Knockout Bracket Generator</div>
+  <div class="header-controls">
+    <button class="btn" onclick="triggerBgUpload()">🖼 Background</button>
+    <button class="btn btn-sm" onclick="resetBracket()">↺ Reset</button>
+  </div>
+</header>
+
+<!-- ══════════════════ SETUP PANEL ══════════════════ -->
+<div id="setup-panel">
+  <div class="setup-field">
+    <label>Total Groups</label>
+    <input type="number" id="num-groups" value="4" min="2" max="16" />
+  </div>
+  <div class="setup-field">
+    <label>Entries per Group</label>
+    <input type="number" id="entries-per-group" value="4" min="2" max="12" />
+  </div>
+  <div class="setup-field">
+    <label>Teams to Knockout</label>
+    <input type="number" id="advance-per-group" value="2" min="1" max="8" />
+  </div>
+  <button class="btn btn-primary" onclick="generateBracket()">▶ Generate Bracket</button>
+</div>
+
+<!-- ══════════════════ BRACKET ROOT ══════════════════ -->
+<div id="bracket-root">
+  <div class="empty-state">
+    <div class="es-icon">🏆</div>
+    Set your parameters above and click <strong>Generate Bracket</strong> to begin.
+  </div>
+</div>
+
+</div><!-- #app -->
+
+<!-- ══════════════════ SETTINGS TOGGLE ══════════════════ -->
+<button id="settings-toggle" onclick="toggleSettings()">⚙ Sizing</button>
+
+<!-- ══════════════════ SETTINGS PANEL ══════════════════ -->
+<div id="settings-panel">
+  <div class="settings-header">
+    <span>⚙ Bracket Sizing</span>
+    <button class="settings-close" onclick="toggleSettings()">✕</button>
+  </div>
+
+  <div class="settings-section">
+    <h4>Slot Dimensions</h4>
+
+    <div class="slider-row">
+      <label>Box Width</label>
+      <input type="range" id="sl-box-w" min="120" max="340" value="200"
+             oninput="applySizing()" />
+      <span class="val" id="val-box-w">200px</span>
+    </div>
+
+    <div class="slider-row">
+      <label>Box Padding</label>
+      <input type="range" id="sl-box-pad" min="4" max="22" value="10"
+             oninput="applySizing()" />
+      <span class="val" id="val-box-pad">10px</span>
+    </div>
+
+    <div class="slider-row">
+      <label>Image Size</label>
+      <input type="range" id="sl-img-size" min="24" max="64" value="38"
+             oninput="applySizing()" />
+      <span class="val" id="val-img-size">38px</span>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h4>Typography & Spacing</h4>
+
+    <div class="slider-row">
+      <label>Font Size</label>
+      <input type="range" id="sl-font" min="9" max="20" value="13"
+             oninput="applySizing()" />
+      <span class="val" id="val-font">13px</span>
+    </div>
+
+    <div class="slider-row">
+      <label>Column Gap</label>
+      <input type="range" id="sl-gap" min="20" max="120" value="60"
+             oninput="applySizing()" />
+      <span class="val" id="val-gap">60px</span>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h4>Background</h4>
+    <button class="btn" style="width:100%;justify-content:center;" onclick="triggerBgUpload()">
+      🖼 Upload Background
+    </button>
+    <button class="btn btn-sm" style="width:100%;justify-content:center;margin-top:8px;"
+            onclick="clearBackground()">✕ Remove Background</button>
+  </div>
+
+  <div class="settings-section">
+    <h4>Reset</h4>
+    <button class="btn" style="width:100%;justify-content:center;" onclick="resetBracket()">
+      ↺ Clear All &amp; Reset
+    </button>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════ */
+let state = {
+  groups: [],            // [{name, entries:[{name,img}]}]
+  knockoutRounds: [],    // array of rounds; each round = array of matches; each match = [slot,slot]
+  advancePerGroup: 2,
+  totalKoTeams: 0,
+  fileCallback: null,    // current pending file-picker callback
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   SETTINGS PANEL
+═══════════════════════════════════════════════════════════════ */
+function toggleSettings() {
+  document.getElementById('settings-panel').classList.toggle('open');
+}
+
+function applySizing() {
+  const get = id => document.getElementById(id).value;
+  const set = (id, val, suf) => {
+    document.getElementById(id).value = val;
+    document.getElementById('val-' + id.replace('sl-', '')).textContent = val + suf;
+  };
+
+  const bw  = get('sl-box-w');
+  const bp  = get('sl-box-pad');
+  const img = get('sl-img-size');
+  const fs  = get('sl-font');
+  const cg  = get('sl-gap');
+
+  document.documentElement.style.setProperty('--box-w',    bw + 'px');
+  document.documentElement.style.setProperty('--box-pad',  bp + 'px');
+  document.documentElement.style.setProperty('--img-size', img + 'px');
+  document.documentElement.style.setProperty('--font-size', fs + 'px');
+  document.documentElement.style.setProperty('--col-gap',  cg + 'px');
+
+  document.getElementById('val-box-w').textContent   = bw + 'px';
+  document.getElementById('val-box-pad').textContent = bp + 'px';
+  document.getElementById('val-img-size').textContent = img + 'px';
+  document.getElementById('val-font').textContent    = fs + 'px';
+  document.getElementById('val-gap').textContent     = cg + 'px';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   FILE PICKER (single hidden input, callback-driven)
+═══════════════════════════════════════════════════════════════ */
+const fileInput = document.getElementById('hidden-file-input');
+
+function pickImage(callback) {
+  state.fileCallback = callback;
+  fileInput.value = '';
+  fileInput.click();
+}
+
+fileInput.addEventListener('change', () => {
+  if (!fileInput.files.length || !state.fileCallback) return;
+  const file = fileInput.files[0];
+  const reader = new FileReader();
+  reader.onload = e => {
+    state.fileCallback(e.target.result);
+    state.fileCallback = null;
+  };
+  reader.readAsDataURL(file);
+});
+
+/* ─── Background ─── */
+function triggerBgUpload() {
+  pickImage(dataUrl => {
+    document.getElementById('bg-layer').style.backgroundImage = `url('${dataUrl}')`;
+    toast('Background updated!');
+  });
+}
+function clearBackground() {
+  document.getElementById('bg-layer').style.backgroundImage = '';
+  toast('Background cleared.');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════════════════════ */
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GENERATE BRACKET
+═══════════════════════════════════════════════════════════════ */
+function generateBracket() {
+  const numGroups    = Math.max(2, parseInt(document.getElementById('num-groups').value) || 4);
+  const entriesPerG  = Math.max(2, parseInt(document.getElementById('entries-per-group').value) || 4);
+  const advPerGroup  = Math.max(1, parseInt(document.getElementById('advance-per-group').value) || 2);
+
+  // Build group state
+  state.groups = [];
+  for (let g = 0; g < numGroups; g++) {
+    const entries = [];
+    for (let e = 0; e < entriesPerG; e++) {
+      entries.push({ name: `Player ${e + 1}`, img: null });
+    }
+    state.groups.push({ name: `Group ${String.fromCharCode(65 + g)}`, entries });
+  }
+
+  state.advancePerGroup = advPerGroup;
+  const totalKO = numGroups * advPerGroup;
+  state.totalKoTeams = totalKO;
+
+  // Build knockout slots: next power of 2 >= totalKO
+  const bracketSize = nextPow2(totalKO);
+  const numRounds   = Math.log2(bracketSize);
+
+  // Build rounds structure:
+  // Round 0 = first round (bracketSize/2 matches)
+  state.knockoutRounds = [];
+  for (let r = 0; r < numRounds; r++) {
+    const matchCount = bracketSize / Math.pow(2, r + 1);
+    const round = [];
+    for (let m = 0; m < matchCount; m++) {
+      round.push([emptySlot(), emptySlot()]);
+    }
+    state.knockoutRounds.push(round);
+  }
+
+  renderAll();
+  toast(`Bracket generated! ${numGroups} groups · ${totalKO} knockout spots`);
+}
+
+function emptySlot() {
+  return { name: '', img: null };
+}
+
+function nextPow2(n) {
+  if (n <= 2) return 2;
+  let p = 2;
+  while (p < n) p *= 2;
+  return p;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════════════════════════ */
+function renderAll() {
+  const root = document.getElementById('bracket-root');
+  root.innerHTML = '';
+
+  renderGroupStage(root);
+  if (state.knockoutRounds.length > 0) {
+    const koSection = document.createElement('div');
+    koSection.innerHTML = '<div class="section-label">Knockout Stage</div>';
+    renderKnockoutStage(koSection);
+    root.appendChild(koSection);
+  }
+}
+
+/* ─── GROUP STAGE ─── */
+function renderGroupStage(root) {
+  if (!state.groups.length) return;
+
+  const section = document.createElement('div');
+  section.innerHTML = '<div class="section-label">Group Stage</div>';
+
+  const container = document.createElement('div');
+  container.id = 'groups-container';
+
+  state.groups.forEach((group, gi) => {
+    const card = document.createElement('div');
+    card.className = 'group-card';
+
+    // Group header (editable)
+    const header = document.createElement('div');
+    header.className = 'group-header';
+    header.contentEditable = 'true';
+    header.textContent = group.name;
+    header.setAttribute('spellcheck', 'false');
+    header.addEventListener('input', () => { group.name = header.textContent.trim(); });
+    card.appendChild(header);
+
+    group.entries.forEach((entry, ei) => {
+      const row = buildParticipantRow(entry, gi, ei);
+      card.appendChild(row);
+    });
+
+    container.appendChild(card);
+  });
+
+  section.appendChild(container);
+  root.appendChild(section);
+}
+
+function buildParticipantRow(entry, gi, ei) {
+  const row = document.createElement('div');
+  row.className = 'participant';
+
+  // Image
+  const imgWrap = document.createElement('div');
+  imgWrap.className = 'participant-img-wrap';
+
+  const img = document.createElement('img');
+  img.src = entry.img || defaultAvatar();
+  img.alt = '';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'img-add-overlay';
+  overlay.textContent = '📷';
+
+  imgWrap.appendChild(img);
+  imgWrap.appendChild(overlay);
+  imgWrap.addEventListener('click', () => {
+    pickImage(dataUrl => {
+      entry.img = dataUrl;
+      img.src = dataUrl;
+    });
+  });
+
+  // Name
+  const name = document.createElement('span');
+  name.className = 'participant-name';
+  name.contentEditable = 'true';
+  name.setAttribute('placeholder', `Entrant ${ei + 1}`);
+  name.setAttribute('spellcheck', 'false');
+  name.textContent = entry.name;
+  name.addEventListener('input', () => { entry.name = name.textContent; });
+
+  // Push to bracket button
+  const pushBtn = document.createElement('button');
+  pushBtn.className = 'advance-btn';
+  pushBtn.title = 'Push to knockout bracket';
+  pushBtn.innerHTML = '→ KO';
+  pushBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    pushToKnockout(entry);
+  });
+
+  row.appendChild(imgWrap);
+  row.appendChild(name);
+  row.appendChild(pushBtn);
+  return row;
+}
+
+/* ─── KNOCKOUT STAGE ─── */
+function renderKnockoutStage(section) {
+  const rounds = state.knockoutRounds;
+  if (!rounds.length) return;
+
+  const numRounds = rounds.length; // e.g. 3 for 8-team bracket
+
+  // Split rounds: left gets ceil(n/2), right gets floor(n/2)
+  // Final round (last) goes to center
+  const centerRound = rounds[numRounds - 1]; // 1 match (the final)
+  const leftRounds  = rounds.slice(0, Math.ceil((numRounds - 1) / 2));
+  const rightRounds = rounds.slice(Math.ceil((numRounds - 1) / 2), numRounds - 1);
+
+  // If only 1 total round (2 teams), everything is the final
+  const knockArea = document.createElement('div');
+  knockArea.id = 'knockout-area';
+
+  const bracketMain = document.createElement('div');
+  bracketMain.className = 'bracket-main';
+
+  // LEFT SIDE
+  if (leftRounds.length > 0) {
+    const leftCol = document.createElement('div');
+    leftCol.className = 'rounds-col left-side';
+    leftRounds.forEach((round, ri) => {
+      const roundIdx = ri; // actual index in state.knockoutRounds
+      leftCol.appendChild(buildRoundColumn(round, roundIdx, 'left'));
+    });
+    bracketMain.appendChild(leftCol);
+  }
+
+  // CENTER (Final + Trophy)
+  const centerCol = document.createElement('div');
+  centerCol.className = 'final-column';
+
+  const trophy = document.createElement('div');
+  trophy.className = 'trophy-icon';
+  trophy.textContent = '🏆';
+  centerCol.appendChild(trophy);
+
+  const finalLabel = document.createElement('div');
+  finalLabel.className = 'final-label';
+  finalLabel.contentEditable = 'true';
+  finalLabel.setAttribute('spellcheck', 'false');
+  finalLabel.textContent = 'FINAL';
+  centerCol.appendChild(finalLabel);
+
+  // Final match side-by-side
+  const finalMatchEl = document.createElement('div');
+  finalMatchEl.className = 'final-match';
+
+  const finalRoundIdx = numRounds - 1;
+  const finalMatch    = centerRound[0]; // always 1 match
+
+  const slotA = buildBracketSlot(finalMatch[0], finalRoundIdx, 0, 0, 'final');
+  const vsEl  = document.createElement('div');
+  vsEl.className = 'final-vs';
+  vsEl.textContent = 'VS';
+  const slotB = buildBracketSlot(finalMatch[1], finalRoundIdx, 0, 1, 'final');
+
+  finalMatchEl.appendChild(slotA);
+  finalMatchEl.appendChild(vsEl);
+  finalMatchEl.appendChild(slotB);
+  centerCol.appendChild(finalMatchEl);
+
+  // Champion display
+  const champBox = document.createElement('div');
+  champBox.className = 'champion-box';
+  champBox.innerHTML = `
+    <div class="champion-crown">👑</div>
+    <div class="champion-label">Champion</div>
+    <div id="champ-img-wrap" style="width:var(--img-size);height:var(--img-size);"></div>
+    <div id="champ-name" style="font-size:var(--font-size);color:var(--gold);font-weight:700;text-align:center;">TBD</div>
+  `;
+  centerCol.appendChild(champBox);
+
+  bracketMain.appendChild(centerCol);
+
+  // RIGHT SIDE
+  if (rightRounds.length > 0) {
+    const rightCol = document.createElement('div');
+    rightCol.className = 'rounds-col right-side';
+    // Right rounds are displayed in reverse (closest to final first, then further)
+    [...rightRounds].reverse().forEach((round, ri) => {
+      const roundIdx = Math.ceil((numRounds - 1) / 2) + (rightRounds.length - 1 - ri);
+      rightCol.appendChild(buildRoundColumn(round, roundIdx, 'right'));
+    });
+    bracketMain.appendChild(rightCol);
+  }
+
+  knockArea.appendChild(bracketMain);
+
+  // ─── THIRD PLACE ───
+  if (numRounds >= 2) {
+    const sfRoundIdx = numRounds - 2; // semifinal round
+    const sfRound    = rounds[sfRoundIdx];
+
+    const thirdArea = document.createElement('div');
+    thirdArea.className = 'third-place-area';
+
+    const tpLabel = document.createElement('div');
+    tpLabel.className = 'third-place-label';
+    tpLabel.textContent = '3rd Place Match';
+    thirdArea.appendChild(tpLabel);
+
+    const thirdMatch = document.createElement('div');
+    thirdMatch.className = 'third-match';
+
+    // We use special slots referencing the semi-final losers (displayed as editable)
+    const tp0 = buildBracketSlot(state.thirdPlace ? state.thirdPlace[0] : emptySlot(), -1, 0, 0, 'third');
+    const tvs  = document.createElement('div');
+    tvs.className = 'third-vs';
+    tvs.textContent = 'VS';
+    const tp1 = buildBracketSlot(state.thirdPlace ? state.thirdPlace[1] : emptySlot(), -1, 0, 1, 'third');
+
+    thirdMatch.appendChild(tp0);
+    thirdMatch.appendChild(tvs);
+    thirdMatch.appendChild(tp1);
+    thirdArea.appendChild(thirdMatch);
+
+    const bronzeLabel = document.createElement('div');
+    bronzeLabel.className = 'bronze-label';
+    bronzeLabel.textContent = '🥉 Bronze Medal Match';
+    thirdArea.appendChild(bronzeLabel);
+
+    knockArea.appendChild(thirdArea);
+  }
+
+  section.appendChild(knockArea);
+}
+
+function buildRoundColumn(round, roundIdx, side) {
+  const wrap = document.createElement('div');
+  wrap.className = 'round-col-wrap';
+
+  const label = document.createElement('div');
+  label.className = 'round-label';
+  label.contentEditable = 'true';
+  label.setAttribute('spellcheck', 'false');
+  label.textContent = getRoundLabel(roundIdx);
+  wrap.appendChild(label);
+
+  const roundEl = document.createElement('div');
+  roundEl.className = `round ${side}-side`;
+
+  round.forEach((match, mi) => {
+    const matchPair = document.createElement('div');
+    matchPair.className = 'match-pair bracket-connector';
+
+    const slotA = buildBracketSlot(match[0], roundIdx, mi, 0, side);
+    const div   = document.createElement('div');
+    div.className = 'match-divider';
+    const slotB = buildBracketSlot(match[1], roundIdx, mi, 1, side);
+
+    matchPair.appendChild(slotA);
+    matchPair.appendChild(div);
+    matchPair.appendChild(slotB);
+
+    roundEl.appendChild(matchPair);
+  });
+
+  wrap.appendChild(roundEl);
+  return wrap;
+}
+
+function buildBracketSlot(slotData, roundIdx, matchIdx, slotIdx, side) {
+  const slot = document.createElement('div');
+  slot.className = 'bracket-slot' + (slotData.name ? ' winner' : ' empty');
+
+  // Image
+  if (slotData.img) {
+    const img = document.createElement('img');
+    img.className = 'slot-img';
+    img.src = slotData.img;
+    img.alt = '';
+    img.addEventListener('click', e => {
+      e.stopPropagation();
+      pickImage(dataUrl => {
+        slotData.img = dataUrl;
+        img.src = dataUrl;
+      });
+    });
+    slot.appendChild(img);
+  } else {
+    const ph = document.createElement('div');
+    ph.className = 'slot-img-placeholder';
+    ph.textContent = '📷';
+    ph.addEventListener('click', e => {
+      e.stopPropagation();
+      pickImage(dataUrl => {
+        slotData.img = dataUrl;
+        renderAll();
+      });
+    });
+    slot.appendChild(ph);
+  }
+
+  // Name
+  const nameEl = document.createElement('span');
+  nameEl.className = 'slot-name';
+  nameEl.contentEditable = 'true';
+  nameEl.setAttribute('placeholder', 'TBD');
+  nameEl.setAttribute('spellcheck', 'false');
+  nameEl.textContent = slotData.name;
+  nameEl.addEventListener('input', () => { slotData.name = nameEl.textContent; });
+  slot.appendChild(nameEl);
+
+  // Advance button (not on final/third)
+  if (side !== 'final' && side !== 'third' && roundIdx >= 0) {
+    const advBtn = document.createElement('button');
+    advBtn.className = 'advance-btn';
+    advBtn.textContent = '▶';
+    advBtn.title = 'Advance to next round';
+    advBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      advanceSlot(slotData, roundIdx, matchIdx, slotIdx);
+    });
+    slot.appendChild(advBtn);
+  }
+
+  // Click whole slot to advance
+  slot.addEventListener('click', () => {
+    if (side !== 'final' && side !== 'third' && roundIdx >= 0 && slotData.name) {
+      advanceSlot(slotData, roundIdx, matchIdx, slotIdx);
+    }
+  });
+
+  return slot;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ADVANCEMENT LOGIC
+═══════════════════════════════════════════════════════════════ */
+function advanceSlot(slotData, roundIdx, matchIdx, slotIdx) {
+  if (!slotData.name) {
+    toast('Slot is empty — type a name first!');
+    return;
+  }
+
+  const rounds    = state.knockoutRounds;
+  const nextRound = roundIdx + 1;
+
+  if (nextRound >= rounds.length) {
+    // Already in the final — update champion
+    updateChampion(slotData);
+    toast(`🏆 ${slotData.name} is the Champion!`);
+    return;
+  }
+
+  // Target match in next round:
+  // Every 2 matches in the current round feed into 1 match in the next round
+  const targetMatch = Math.floor(matchIdx / 2);
+  const targetSlot  = matchIdx % 2;
+
+  // Copy data into next round
+  rounds[nextRound][targetMatch][targetSlot].name = slotData.name;
+  rounds[nextRound][targetMatch][targetSlot].img  = slotData.img;
+
+  // If this is the SF (second-to-last round), populate 3rd place slot
+  if (nextRound === rounds.length - 1) {
+    if (!state.thirdPlace) state.thirdPlace = [emptySlot(), emptySlot()];
+    // The OTHER slot in this match goes to 3rd place
+    const otherSlot = rounds[roundIdx][matchIdx][slotIdx === 0 ? 1 : 0];
+    state.thirdPlace[targetSlot].name = otherSlot.name || '?';
+    state.thirdPlace[targetSlot].img  = otherSlot.img  || null;
+  }
+
+  toast(`${slotData.name} advanced to ${getRoundLabel(nextRound)}!`);
+  renderAll();
+}
+
+function pushToKnockout(entry) {
+  // Find the first empty slot in round 0
+  const r0 = state.knockoutRounds[0];
+  if (!r0) { toast('Generate a bracket first!'); return; }
+
+  for (let m = 0; m < r0.length; m++) {
+    for (let s = 0; s < 2; s++) {
+      if (!r0[m][s].name) {
+        r0[m][s].name = entry.name || `Entrant`;
+        r0[m][s].img  = entry.img;
+        toast(`${r0[m][s].name} added to Round of ${r0.length * 2}!`);
+        renderAll();
+        return;
+      }
+    }
+  }
+  toast('All first-round slots are filled!');
+}
+
+function updateChampion(slotData) {
+  const nameEl = document.getElementById('champ-name');
+  const imgWrap = document.getElementById('champ-img-wrap');
+  if (nameEl) nameEl.textContent = slotData.name;
+  if (imgWrap) {
+    imgWrap.innerHTML = '';
+    if (slotData.img) {
+      const img = document.createElement('img');
+      img.src = slotData.img;
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%;border:2px solid var(--gold)';
+      imgWrap.appendChild(img);
+    }
+  }
+}
+
+function getRoundLabel(roundIdx) {
+  const rounds    = state.knockoutRounds;
+  const numRounds = rounds.length;
+  const fromEnd   = numRounds - 1 - roundIdx;
+
+  if (fromEnd === 0) return 'Final';
+  if (fromEnd === 1) return 'Semi-Final';
+  if (fromEnd === 2) return 'Quarter-Final';
+  const matchCount = rounds[roundIdx] ? rounds[roundIdx].length * 2 : Math.pow(2, fromEnd + 1);
+  return `Round of ${matchCount}`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESET
+═══════════════════════════════════════════════════════════════ */
+function resetBracket() {
+  if (!confirm('Clear all bracket data and start fresh?')) return;
+  state.groups         = [];
+  state.knockoutRounds = [];
+  state.thirdPlace     = null;
+  state.totalKoTeams   = 0;
+  document.getElementById('bracket-root').innerHTML =
+    '<div class="empty-state"><div class="es-icon">🏆</div>Set your parameters above and click <strong>Generate Bracket</strong> to begin.</div>';
+  toast('Bracket cleared.');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DEFAULT AVATAR (1×1 transparent SVG)
+═══════════════════════════════════════════════════════════════ */
+function defaultAvatar() {
+  return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='%230d1a3a'/%3E%3Ccircle cx='20' cy='15' r='7' fill='%23c89a20' opacity='0.5'/%3E%3Cellipse cx='20' cy='32' rx='11' ry='7' fill='%23c89a20' opacity='0.3'/%3E%3C/svg%3E";
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════════ */
+// Wire sliders on load
+document.addEventListener('DOMContentLoaded', () => {
+  applySizing();
+});
+</script>
+</body>
+</html>
